@@ -10,79 +10,21 @@ Sistem RAG (Retrieval-Augmented Generation) lokal untuk ingest dokumen internal,
 
 ```mermaid
 flowchart TD
-    subgraph Input
-        A1[Drop file ke incoming_docs/\n.pdf .md .txt]
-        A2[POST /ingest\nupload file atau path JSON]
-    end
+    Document[Docs: PDF/TXT/MD] --> Ingestion[Ingestion API / Placing]
+    Document --> OCR
+    OCR --> Doc_Parse
+    Ingestion --> Doc_Parse[Document Parser + Cleaning]
+    Doc_Parse --> Chunk[Chunking]
+    Chunk --> Embedding[Embedding]
+    Embedding --> Vector[Vector Store]
 
-    subgraph gsp-folder-watcher
-        B1[DirectoryWatcher\nscan setiap 2 detik]
-        B2{File stabil\n>= 3 detik?}
-        B3[Generate event_id\nSHA-256 hash]
-    end
-
-    subgraph Kafka
-        K1[Topic: rag.document.ingest]
-        K2[Topic: rag.document.ingest.retry]
-        K3[Topic: rag.document.ingest.dlq]
-    end
-
-    subgraph gsp-kafka-ingester
-        C1[KafkaIngestionConsumer\nconsume ingest + retry topic]
-        C2[DocumentProcessor\nparse + clean + chunk]
-        C3{Sukses?}
-        C4{retry_count\n< max_retries?}
-    end
-
-    subgraph gsp-rag-api
-        D1[POST /ingest\nlangsung ke RAGService]
-    end
-
-    subgraph Storage
-        E1[(PostgreSQL + pgvector\nrag_chunks)]
-        E2[(Redis\nResponse Cache)]
-        E3[data/documents.json\nMetadata Catalog]
-        E4[processed_docs/]
-        E5[failed_docs/]
-    end
-
-    subgraph Query
-        Q1[POST /query]
-        Q2[Embed pertanyaan]
-        Q3[Vector Search\ntop-k cosine]
-        Q4[Ollama LLM\nGenerate answer]
-        Q5[Response +\ncitation + confidence]
-    end
-
-    A1 --> B1
-    B1 --> B2
-    B2 -- Belum --> B1
-    B2 -- Ya --> B3
-    B3 --> K1
-
-    K1 --> C1
-    K2 --> C1
-    C1 --> C2
-    C2 --> C3
-    C3 -- Sukses --> E1
-    C3 -- Sukses --> E3
-    C3 -- Sukses --> E4
-    C3 -- Gagal --> C4
-    C4 -- Ya --> K2
-    C4 -- Tidak --> K3
-    C4 -- Tidak --> E5
-
-    A2 --> D1
-    D1 --> E1
-    D1 --> E3
-
-    Q1 --> Q2
-    Q2 --> Q3
-    Q3 --> E1
-    Q3 --> E2
-    E2 -- Cache hit --> Q5
-    Q3 -- Cache miss --> Q4
-    Q4 --> Q5
+    Query[User Query] --> API_Layer[Query API]
+    API_Layer --> Retriever[Retriever]
+    Retriever --> Rerank[Rerank/Score]
+    Rerank --> Ans_Builder[Grounded Answer Builder]
+    Ans_Builder --> Response[Response + Citations + Confidence]
+    API_Layer --> Cache[Cache/Session]
+    API_Layer --> Metrics[Metrics + Logging]
 ```
 
 ---
