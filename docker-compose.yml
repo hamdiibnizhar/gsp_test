@@ -99,5 +99,21 @@ services:
       - ./processed_docs:/app/processed_docs
       - ./failed_docs:/app/failed_docs
 
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: gsp-open-webui
+    depends_on:
+      - rag-api
+    environment:
+      - OLLAMA_BASE_URL=http://10.30.50.2:11434
+      - OPENAI_API_BASE_URLS=http://rag-api:8000/v1
+      - OPENAI_API_KEYS=gsp-internal
+    ports:
+      - "3000:8080"
+    volumes:
+      - open_webui_data:/app/backend/data
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  open_webui_data:

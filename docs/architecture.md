@@ -66,8 +66,8 @@ Pada alur query, user mengirim pertanyaan melalui Query API. Sistem akan mengece
 - Jika pakai cloud fallback, payload dapat dibatasi ke chunk terfilter.
 
 ## Deployment Local Server
-- Jalankan langsung `uvicorn src.main:app --reload`.
-- Atau `docker compose up --build`.
+- Jalankan langsung `uvicorn src.main:app --reload` untuk jalankan service di terminal
+- `docker compose up --build` untuk docker
 
 ## Trade-off Local vs Cloud LLM
 - Local: privasi tinggi, biaya inferensi stabil, tapi kualitas model dan latency tergantung hardware.

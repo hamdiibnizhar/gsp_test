@@ -10,35 +10,18 @@ Sistem RAG (Retrieval-Augmented Generation) lokal untuk ingest dokumen internal,
 
 ```mermaid
 flowchart TD
-    subgraph kafka_cluster["kafka cluster"]
-        kafka1_leader --> kafka2 -->Kafka3 --> kafka_2n+1
-    end
-    subgraph DWH["Data Warehouse"]
-        Broker_DWH["keaep Alived Leader"] --> Worker1 -->worker2 --> Worker_2n+1
-    end
-    subgraph DL["Data Lake"]
-        Broker_DL["keaep Alived Leader"] --> Node1 -->Node2 --> Node_2n+1
-    end
+    Document[Docs: PDF/TXT/MD] --> Ingestion[Ingestion API / Placing]
+    Document --> OCR
+    OCR --> Doc_Parse
+    Ingestion --> Doc_Parse[Document Parser + Cleaning]
+    Doc_Parse --> Chunk[Chunking]
+    Chunk --> Embedding[Embedding]
+    Embedding --> Vector[Vector Store]
 
-    Data_Source --> API--> Drop[Drop Folder] <--> DL["Input folder"]
-    File --> Drop
-    Drop --> Scanner[Scan folder setiap 2 detik]
-    Scanner --> OCR --> Ingestion
-
-    Scanner --> Ingestion[Ingestion Service] --> kafka_cluster
-    kafka_cluster --> Doc_parse["Document Parser"]
-    Doc_parse --> Chuncking --> Embedding --> Vector[Vector DB PgVector Ext] --> DWH
-
-
-    Vector --> Retriever
-
-    Retriever --> cache[Redis]
-    cache --> Response
     Query[User Query] --> API_Layer[Query API]
     API_Layer --> Retriever[Retriever]
     Retriever --> Rerank[Rerank/Score]
-    Rerank --> LLM
-    LLM --> Ans_Builder[Grounded Answer Builder]
+    Rerank --> Ans_Builder[Grounded Answer Builder]
     Ans_Builder --> Response[Response + Citations + Confidence]
     API_Layer --> Cache[Cache/Session]
     API_Layer --> Metrics[Metrics + Logging]
@@ -48,7 +31,7 @@ flowchart TD
 
 ## 1. Cara Menjalankan
 
-### Docker
+### Docker (disarankan)
 
 ```bash
 cd GSP
@@ -57,6 +40,8 @@ docker compose up --build
 ```
 
 Service aktif di `http://localhost:8000`. Semua container (postgres, redis, kafka, rag-api, folder-watcher, kafka-ingester) naik otomatis.
+
+> **Catatan:** `gsp-rag-api` menunggu postgres healthy sebelum start. Postgres biasanya siap dalam 10-15 detik.
 
 ---
 
@@ -231,7 +216,42 @@ pytest -q
 
 ---
 
-## 9. Limitasi
+## 9. OpenWebUI Interface
+
+OpenWebUI tersedia sebagai antarmuka chat di `http://localhost:3000` setelah stack dijalankan.
+
+### Cara Akses
+
+```bash
+docker compose up --build
+# Buka http://localhost:3000
+```
+
+Daftarkan akun admin pada kunjungan pertama.
+
+### Koneksi ke RAG API
+
+OpenWebUI dikonfigurasi otomatis dengan dua backend:
+
+| Backend | URL dalam container | Model/Label |
+|---|---|---|
+| Ollama (LLM langsung) | `http://10.30.50.2:11434` | model sesuai Ollama |
+| RAG API (GSP) | `http://rag-api:8000/v1` | `gsp-rag` |
+
+Pilih model **`gsp-rag`** di dropdown model OpenWebUI untuk menggunakan retrieval berbasis dokumen internal. Setiap respons menyertakan sumber dokumen dan confidence score di bagian bawah jawaban.
+
+### Endpoint OpenAI-Compatible
+
+RAG API kini mengekspos endpoint kompatibel OpenAI yang bisa digunakan client lain selain OpenWebUI:
+
+| Endpoint | Keterangan |
+|---|---|
+| `GET /v1/models` | Daftar model tersedia |
+| `POST /v1/chat/completions` | Chat dengan RAG (mendukung `stream: true/false`) |
+
+---
+
+## 10. Limitasi
 
 - Embedding berbasis hashing — bukan semantic transformer.
 - Belum ada reranker model-based.
