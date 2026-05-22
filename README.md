@@ -48,7 +48,7 @@ flowchart TD
 
 ## 1. Cara Menjalankan
 
-### Docker (disarankan)
+### Docker
 
 ```bash
 cd GSP
@@ -57,8 +57,6 @@ docker compose up --build
 ```
 
 Service aktif di `http://localhost:8000`. Semua container (postgres, redis, kafka, rag-api, folder-watcher, kafka-ingester) naik otomatis.
-
-> **Catatan:** `gsp-rag-api` menunggu postgres healthy sebelum start. Postgres biasanya siap dalam 10-15 detik.
 
 ---
 
