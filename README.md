@@ -10,18 +10,35 @@ Sistem RAG (Retrieval-Augmented Generation) lokal untuk ingest dokumen internal,
 
 ```mermaid
 flowchart TD
-    Document[Docs: PDF/TXT/MD] --> Ingestion[Ingestion API / Placing]
-    Document --> OCR
-    OCR --> Doc_Parse
-    Ingestion --> Doc_Parse[Document Parser + Cleaning]
-    Doc_Parse --> Chunk[Chunking]
-    Chunk --> Embedding[Embedding]
-    Embedding --> Vector[Vector Store]
+    subgraph kafka_cluster["kafka cluster"]
+        kafka1_leader --> kafka2 -->Kafka3 --> kafka_2n+1
+    end
+    subgraph DWH["Data Warehouse"]
+        Broker_DWH["keaep Alived Leader"] --> Worker1 -->worker2 --> Worker_2n+1
+    end
+    subgraph DL["Data Lake"]
+        Broker_DL["keaep Alived Leader"] --> Node1 -->Node2 --> Node_2n+1
+    end
 
+    Data_Source --> API--> Drop[Drop Folder] <--> DL["Input folder"]
+    File --> Drop
+    Drop --> Scanner[Scan folder setiap 2 detik]
+    Scanner --> OCR --> Ingestion
+
+    Scanner --> Ingestion[Ingestion Service] --> kafka_cluster
+    kafka_cluster --> Doc_parse["Document Parser"]
+    Doc_parse --> Chuncking --> Embedding --> Vector[Vector DB PgVector Ext] --> DWH
+
+
+    Vector --> Retriever
+
+    Retriever --> cache[Redis]
+    cache --> Response
     Query[User Query] --> API_Layer[Query API]
     API_Layer --> Retriever[Retriever]
     Retriever --> Rerank[Rerank/Score]
-    Rerank --> Ans_Builder[Grounded Answer Builder]
+    Rerank --> LLM
+    LLM --> Ans_Builder[Grounded Answer Builder]
     Ans_Builder --> Response[Response + Citations + Confidence]
     API_Layer --> Cache[Cache/Session]
     API_Layer --> Metrics[Metrics + Logging]
